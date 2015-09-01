@@ -5,7 +5,7 @@ default: pystraw.so
 
 CPPFLAGS :=
 
-CFLAGS :=
+CFLAGS := -fPIC
 
 SRC := $(wildcard *.c)
 OBJ := $(SRC:%.c=%.o)
