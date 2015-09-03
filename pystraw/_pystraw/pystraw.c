@@ -104,7 +104,7 @@ int pore_straw_read(straw_ring_t *ring, uint8_t *data, int len)
     int prod = ring->in_prod;
     int cons = ring->in_cons;
     int avail = prod - cons;
-    while (avail > 0)
+    while (avail < 0)
         avail += STRAW_RING_SIZE;
     //rmb();
     uint8_t *buffer = ring->input;

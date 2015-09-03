@@ -2,6 +2,7 @@
 import os
 import select
 import threading
+import struct
 
 from ctypes import *
 solib = CDLL("pystraw/_pystraw/pystraw.so")
@@ -74,55 +75,64 @@ class Straw(object):
       return True
 
 def shovel(self):
+  inp = ""
+  outp = ""
+
   ia,oa = update_avail(self.ring)
   exp_size = None
 
   while True:
-    print "ia %d oa %d" % ia, oa
+    #print "ia %d oa %d" % (ia,oa)
 
-    if len(output) > 0 and oa > 0:
+    if len(outp) > 0 and oa > 0:
       print "can send %d byte(s)" % oa
-      ch,output = chip(oa, output)
+      ch,outp = chip(oa, outp)
       # void pore_straw_write(straw_ring_t *ring, uint8_t *data, int len)
-      solib.pore_straw_write(self.ring, c_void_p(ch), len(ch))
+      solib.pore_straw_write(c_void_p(self.ring), c_void_p(ch), len(ch))
       print "%d byte(s) sent" % len(ch)
       solib.pore_straw_poke(self.channel, self.evtchn_fd)
       ia,oa = update_avail(self.ring)
 
-    elif exp_size == None and len(input) >= 4:
-      ch,input = chip(4, input)
+    elif exp_size == None and len(inp) >= 4:
+      print "inp1 = ", inp
+      ch,inp = chip(4, inp)
+      print "ch = ", ch
+      print "inp2 = ", inp
       exp_size, = struct.unpack(">L", ch)
       print "exp_size = %d" % exp_size
 
-    elif exp_size != None and len(input) >= exp_size:
-      ch,input = chip(exp_size, input)
+    elif exp_size != None and len(inp) >= exp_size:
+      ch,inp = chip(exp_size, inp)
       print "deliver ", ch
       exp_size = None
 
     elif ia > 0:
       print "can read %d byte(s)" % ia
       # int pore_straw_read(straw_ring_t *ring, uint8_t *data, int len)
-      buf = (c_byte * 4096)()
-      len = solib.pore_straw_read(self.ring, buf, 4096)
-      input += str(bytearray(data[:len]))
-      print "%d byte(s) read" % data
+      buf = (c_ubyte * 16384)()
+      n = solib.pore_straw_read(c_void_p(self.ring), buf, 16384)
+      inp += str(bytearray(buf[:n]))
+      print "read: ", buf[:n]
       solib.pore_straw_poke(self.channel, self.evtchn_fd)
       ia,oa = update_avail(self.ring)
 
     else:
-      print "waiting for irq"
-      p = select.epoll.fromfd(self.evtchn_fd)
-      select.epoll.poll(p)
+      #print "waiting for irq"
+      ep = select.epoll(1)
+      ep.register(self.evtchn_fd, select.EPOLLIN | select.EPOLLOUT)
+      ep.poll()
+      ep.close()
+
       ia,oa = update_avail(self.ring)
 
 def update_avail(ring):
     x = c_int()
     y = c_int()
-    solib.pore_straw_avail(ring, byref(x), byref(y))
+    solib.pore_straw_avail(c_void_p(ring), byref(x), byref(y))
     return x.value,y.value
 
 def chip(n, s):
-    if (n <= len(s)):
+    if n > len(s):
         n = len(s)
     return s[:n],s[n:]
 
