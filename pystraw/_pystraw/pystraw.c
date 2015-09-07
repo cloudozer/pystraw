@@ -46,7 +46,6 @@ void *pore_straw_ring_refs(domid_t domid, grant_ref_t refs[NUM_STRAW_REFS])
     void *ring = mmap(0, NUM_STRAW_REFS *PAGE_SIZE,
                         PROT_READ | PROT_WRITE, MAP_SHARED, fd, op->index);
     assert(ring != MAP_FAILED);
-    printf("mapped: %p\n", ring);
 
     for (int i = 0; i < NUM_STRAW_REFS; i++)
         refs[i] = op->gref_ids[i];
